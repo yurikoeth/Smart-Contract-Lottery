@@ -30,7 +30,7 @@ contract DeployRaffle is Script {
             FundSubscription fundSubscription = new FundSubscription();
             fundSubscription.fundSubscription(
                 vrfCoordinator, 
-                subId, 
+                subscriptionId, 
                 link
             );
         }
@@ -50,9 +50,8 @@ contract DeployRaffle is Script {
         addConsumer.addConsumer(
             address(raffle), 
             vrfCoordinator, 
-            subId
+            subscriptionId
         );
-        return (raffle, helperConfig);
-        
+        return (raffle, helperConfig);   
     }
 }

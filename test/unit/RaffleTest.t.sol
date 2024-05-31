@@ -97,4 +97,9 @@ contract RaffleTest is Test {
         vm.prank(PLAYER);
         raffle.enterRaffle{value: entranceFee}();  
     }
+
+    function testCheckUpkeepReturnsFalseIfhasNoBalance() public {
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+    }
 }
