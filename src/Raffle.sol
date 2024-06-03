@@ -38,8 +38,8 @@ contract Raffle is VRFConsumerBaseV2 {
     error Raffle__UpkeepNotNeeded(uint256 currentBalance, uint256 numPlayers, uint256 RaffleState);
     
     enum RaffleState {
-        OPEN,
-        CALCULATING
+        OPEN, // 0 
+        CALCULATING // 1
     }
 
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
@@ -59,6 +59,7 @@ contract Raffle is VRFConsumerBaseV2 {
 
     event EnteredRaffle(address indexed player);
     event WinnerPicked(address indexed player);
+    event RequestedRaffleWinner(uint256 indexed requestId);
 
     constructor(
         uint256 entranceFee, 
@@ -123,13 +124,14 @@ contract Raffle is VRFConsumerBaseV2 {
             );
         }
         s_raffleState = RaffleState.CALCULATING;
-        i_vrfCoordinator.requestRandomWords(
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             i_subscriptionId,
             REQUEST_CONFIRMATIONS,
             i_callbackGasLimit,
             NUM_WORDS
         );
+        emit RequestedRaffleWinner(requestId);
     }
 
     function fulfillRandomWords(
