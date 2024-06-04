@@ -6,7 +6,7 @@ import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {Raffle} from "../../src/Raffle.sol";
 import {Test, console} from "../../forge-std/Test.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
-import {Vm} from "forge-std/Vm.Sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract RaffleTest is Test {
     //events
@@ -168,12 +168,27 @@ contract RaffleTest is Test {
         raffle.performUpkeep("");
     }
 
-    function testPerformUpkeep() public raffleEntered {
+    function testPerformUpkeep() public raffleEnteredAndTimeHasPassed {
         vm.recordLogs();
         raffle.performUpkeep("");
         Vm.Log[] memory entries = vm.getRecordedLogs();
         bytes32 requestId = entries[1].topics[1];
 
+        Raffle.RaffleState rState = raffle.getRaffleState();
+
         assert(uint256(requestId) > 0);
+        assert(uint256(rState) == 1);
+    }
+
+    /////////////////////////
+    // RandomWords         //
+    /////////////////////////
+
+    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(uint256 randomRequestId) public raffleEnteredAndTimeHasPassed {
+        vm.expectRevert("nonexistent request");
+        VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(
+            randomRequestId, 
+            address(raffle)
+        );
     }
 }
