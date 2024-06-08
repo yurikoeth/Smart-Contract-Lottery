@@ -6,6 +6,7 @@ import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {Raffle} from "../../src/Raffle.sol";
 import {Test, console} from "../../forge-std/Test.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
+import {VRFCoordinatorV2Mock} from "@chainlink/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol"; 
 import {Vm} from "forge-std/Vm.sol";
 
 contract RaffleTest is Test {
@@ -181,14 +182,39 @@ contract RaffleTest is Test {
     }
 
     /////////////////////////
-    // RandomWords         //
+    // fufillRandomWords   //
     /////////////////////////
 
-    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(uint256 randomRequestId) public raffleEnteredAndTimeHasPassed {
-        vm.expectRevert("nonexistent request");
-        VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(
-            randomRequestId, 
-            address(raffle)
-        );
-    }
+    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(
+        uint256 randomRequestId
+        ) public raffleEnteredAndTimeHasPassed {
+            vm.expectRevert("nonexistent request");
+            VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(
+                randomRequestId, 
+                address(raffle)
+            );
+        }
+
+     function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney() 
+        public raffleEntered {
+            uint256 additionalEntrants = 5;
+            uint256 startingIndex = 1;
+            for (uint256 i = startingIndex; i < startingIndex + additionalEntrants; i++)
+                {
+                    address player = address(uint160(i)); // address(1)
+                    hoax(player, 1 ether);
+                    raffle.enterRaffle{value: entranceFee}();
+                }
+
+            vm.recordLogs();
+            raffle.performUpkeep("");
+            Vm.Log[] memory entries = vm.getRecordedLogs();
+            bytes32 requestId = entries[1].topics[1];
+
+            VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(
+                uint256(requestId), 
+                address(raffle)
+            );
+            assert(uint256(raffle.getRaffleState()) == 0);
+        }
 }
