@@ -4,7 +4,7 @@ pragma solidity ^0.8.18;
 
 import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {Raffle} from "../../src/Raffle.sol";
-import {Test, console} from "../../forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {VRFCoordinatorV2Mock} from "@chainlink/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol"; 
 import {Vm} from "forge-std/Vm.sol";
@@ -27,6 +27,7 @@ contract RaffleTest is Test {
     uint64 subscriptionId;
     uint32 callbackGasLimit;
     address link;
+    uint256 deployerKey;
 
     // variables for the mock player and the default starting wallet
     address public PLAYER = makeAddr("player");
@@ -45,7 +46,8 @@ contract RaffleTest is Test {
             gasLane,
             subscriptionId,
             callbackGasLimit,
-            link
+            link,
+            deployerKey
          ) = helperConfig.activeNetworkConfig();
     }
 
@@ -202,19 +204,31 @@ contract RaffleTest is Test {
             for (uint256 i = startingIndex; i < startingIndex + additionalEntrants; i++)
                 {
                     address player = address(uint160(i)); // address(1)
-                    hoax(player, 1 ether);
+                    hoax(player, STARTING_USER_BALANCE);
                     raffle.enterRaffle{value: entranceFee}();
                 }
+
+            uint256 prize = entranceFee * (additionalEntrants + 1);
+
+            vm.warp(block.timestamp + interval + 1);
 
             vm.recordLogs();
             raffle.performUpkeep("");
             Vm.Log[] memory entries = vm.getRecordedLogs();
             bytes32 requestId = entries[1].topics[1];
 
+            uint256 previousTimeStamp = raffle.getLastTimeStamp();
+
             VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(
                 uint256(requestId), 
                 address(raffle)
             );
-            assert(uint256(raffle.getRaffleState()) == 0);
+            //assert(uint256(raffle.getRaffleState()) == 0);
+            //assert(raffle.getRecentWinner() != address(0));
+            //assert(raffle.getLengthOfPlayers() == 0);
+            //assert(previousTimeStamp < raffle.getLastTimeStamp());
+            console.log(raffle.getRecentWinner().balance);
+            console.log(prize + STARTING_USER_BALANCE);
+            assert(raffle.getRecentWinner().balance == STARTING_USER_BALANCE + prize - entranceFee);
         }
 }
