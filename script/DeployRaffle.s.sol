@@ -25,14 +25,16 @@ contract DeployRaffle is Script {
             //Create new subscription
             CreateSubscription createSubscription = new CreateSubscription();
             subscriptionId = createSubscription.createSubscription(
-                vrfCoordinator
+                vrfCoordinator,
+                deployerKey
             );
 
             FundSubscription fundSubscription = new FundSubscription();
             fundSubscription.fundSubscription(
                 vrfCoordinator, 
                 subscriptionId, 
-                link
+                link,
+                deployerKey
             );
         }
 
@@ -48,8 +50,9 @@ contract DeployRaffle is Script {
         vm.stopBroadcast();
 
         AddConsumer addConsumer = new AddConsumer();
+        address raffleAddress = address(raffle);
         addConsumer.addConsumer(
-            address(raffle), 
+            raffleAddress, 
             vrfCoordinator, 
             subscriptionId,
             deployerKey

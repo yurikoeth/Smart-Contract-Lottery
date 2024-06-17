@@ -19,13 +19,14 @@ contract CreateSubscription is Script {
             , 
             ,
             ,
+            uint256 deployerKey
         ) = helperConfig.activeNetworkConfig();
-        return createSubscription(vrfCoordinator);
+        return createSubscription(vrfCoordinator, deployerKey);
     }
 
-    function createSubscription(address vrfCoordinator) public returns (uint64) {
+    function createSubscription(address vrfCoordinator, uint256 deployerKey) public returns (uint64) {
         console.log("Creating subscription on ChainId: ", block.chainid);
-        vm.startBroadcast();
+        vm.startBroadcast(deployerKey);
         uint64 subId = VRFCoordinatorV2Mock(vrfCoordinator)
             .createSubscription();
         vm.stopBroadcast();
@@ -44,7 +45,7 @@ contract FundSubscription is Script {
 
     function fundSubscriptionUsingConfig() public {
         HelperConfig helperConfig = new HelperConfig();
-        (
+         (
             , 
             , 
             address vrfCoordinator, 
@@ -52,23 +53,24 @@ contract FundSubscription is Script {
             uint64 subId,
             , 
             address link,
+            uint256 deployerKey
         ) = helperConfig.activeNetworkConfig();
-        fundSubscription(vrfCoordinator, subId, link);
+        fundSubscription(vrfCoordinator, subId, link, deployerKey);
     }
 
-    function fundSubscription(address vrfCoordinator, uint64 subId, address link) public {
+    function fundSubscription(address vrfCoordinator, uint64 subId, address link, uint256 deployerKey) public {
         console.log("Funding subscription", subId);
         console.log("Using vrfCoordinator", vrfCoordinator);
         console.log("On ChainID", block.chainid);
         if (block.chainid == 31337){
-            vm.startBroadcast();
+            vm.startBroadcast(deployerKey);
             VRFCoordinatorV2Mock(vrfCoordinator).fundSubscription(
                 subId, 
                 FUND_AMOUNT
             );
             vm.stopBroadcast();
         } else {
-            vm.startBroadcast();
+            vm.startBroadcast(deployerKey);
             LinkToken(link).transferAndCall(
                 vrfCoordinator, 
                 FUND_AMOUNT, 
