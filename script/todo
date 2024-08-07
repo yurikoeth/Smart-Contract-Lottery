@@ -1,0 +1,26 @@
+4. Logging:
+   - Ensure the correct chain ID is logged
+   - Verify that the subscription ID is logged correctly
+   - Check if the message about updating HelperConfig.s.sol is logged
+
+5. Error handling:
+   - Test behavior when an invalid VRFCoordinator address is provided
+   - Check how the function handles a revert from the VRFCoordinatorV2Mock contract
+
+6. Gas consumption:
+   - Measure and set expectations for gas usage
+
+7. Event emission:
+   - If the VRFCoordinatorV2Mock emits events, verify they are emitted correctly
+
+8. Access control:
+   - Ensure the function behaves correctly when called by different accounts (if applicable)
+
+9. State changes:
+   - Verify that no unexpected state changes occur in the contract
+
+10. Reentrancy:
+    - Check if the function is safe against reentrancy attacks (if applicable)
+
+11. Integration:
+    - Test how this function interacts with other parts of your system

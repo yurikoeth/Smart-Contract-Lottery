@@ -19,23 +19,10 @@ contract DeployRaffle is Script {
             uint32 callbackGasLimit,
             address link,
             uint256 deployerKey
-         ) = helperConfig.activeNetworkConfig();
+        ) = helperConfig.activeNetworkConfig();
 
         if (subscriptionId == 0) {
-            //Create new subscription
-            CreateSubscription createSubscription = new CreateSubscription();
-            subscriptionId = createSubscription.createSubscription(
-                vrfCoordinator,
-                deployerKey
-            );
-
-            FundSubscription fundSubscription = new FundSubscription();
-            fundSubscription.fundSubscription(
-                vrfCoordinator, 
-                subscriptionId, 
-                link,
-                deployerKey
-            );
+            subscriptionId = createAndFundSubscription(vrfCoordinator, link, deployerKey);
         }
 
         vm.startBroadcast();
@@ -49,14 +36,44 @@ contract DeployRaffle is Script {
         );
         vm.stopBroadcast();
 
+        addRaffleConsumer(address(raffle), vrfCoordinator, subscriptionId, deployerKey);
+        return (raffle, helperConfig);   
+    }
+
+    function createAndFundSubscription(
+        address vrfCoordinator,
+        address link,
+        uint256 deployerKey
+    ) internal returns (uint64) {
+        CreateSubscription createSubscription = new CreateSubscription();
+        uint64 subscriptionId = createSubscription.createSubscription(
+            vrfCoordinator,
+            deployerKey
+        );
+
+        FundSubscription fundSubscription = new FundSubscription();
+        fundSubscription.fundSubscription(
+            vrfCoordinator, 
+            subscriptionId, 
+            link,
+            deployerKey
+        );
+
+        return subscriptionId;
+    }
+
+    function addRaffleConsumer(
+        address raffleAddress,
+        address vrfCoordinator,
+        uint64 subscriptionId,
+        uint256 deployerKey
+    ) internal {
         AddConsumer addConsumer = new AddConsumer();
-        address raffleAddress = address(raffle);
         addConsumer.addConsumer(
             raffleAddress, 
             vrfCoordinator, 
             subscriptionId,
             deployerKey
         );
-        return (raffle, helperConfig);   
     }
 }

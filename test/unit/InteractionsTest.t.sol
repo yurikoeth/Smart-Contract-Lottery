@@ -1,114 +1,162 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.18;
 
-import "forge-std/Test.sol";
-import "../../script/HelperConfig.s.sol";
-import "../../script/Interactions.s.sol";
-import "@chainlink/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol"; 
-import "../mocks/LinkToken.sol";
+// Import necessary contracts and libraries
+import {Test, Vm} from "forge-std/Test.sol";
+import {CreateSubscription, FundSubscription, AddConsumer} from "../../script/Interactions.s.sol";
+import {HelperConfig} from "../../script/HelperConfig.s.sol";
+import {VRFCoordinatorV2Mock} from "@chainlink/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
+import {LinkToken} from "../mocks/LinkToken.sol";
 
-contract ContractTest is Test {
-    HelperConfig helperConfig;
-    CreateSubscription createSubscription;
-    FundSubscription fundSubscription;
-    AddConsumer addConsumer;
+// Mock contract that always reverts, used for error handling tests
+contract MockAlwaysRevert {
+    error MockAlwaysRevertError();
+    function createSubscription() external pure {
+        revert MockAlwaysRevertError();
+    }
+}
 
+// Main test contract
+contract InteractionsTest is Test {
+    // Declare public variables for the contracts we'll be testing
+    CreateSubscription public createSubscription;
+    FundSubscription public fundSubscription;
+    AddConsumer public addConsumer;
+    HelperConfig public helperConfig;
+    VRFCoordinatorV2Mock public vrfCoordinatorMock;
+    LinkToken public linkToken;
+
+    // Variables to store configuration values
+    address vrfCoordinator;
+    uint64 subId;
+    address link;
+    uint256 deployerKey;
+
+    // Events that we expect to be emitted
+    event SubscriptionCreated(uint256 chainId, uint64 subId);
+    event UpdateHelperConfig();
+
+    // Setup function that runs before each test
     function setUp() public {
-        // Initialize the HelperConfig contract
-        createSubscription = new CreateSubscription(deployerKey);
+        // Create new instances of the contracts
+        createSubscription = new CreateSubscription();
         fundSubscription = new FundSubscription();
         addConsumer = new AddConsumer();
+        helperConfig = new HelperConfig();
+        
+        // Get the active network configuration
+        (,, vrfCoordinator,, subId,, link, deployerKey) = helperConfig.activeNetworkConfig();
+
+        // Cast addresses to their respective contract types
+        vrfCoordinatorMock = VRFCoordinatorV2Mock(vrfCoordinator);
+        linkToken = LinkToken(link);
     }
 
-  function testAddConsumerForSepolia() public {
-        // Simulate Sepolia chain ID
-        vm.chainId(11155111);
+    // Test the CreateSubscription function
+    function testCreateSubscription() public {
+        uint64 expectedSubId = 1; // Expected subscription ID
+        
+        // Expect a call to the createSubscription function on the mock
+        vm.expectCall(
+            address(vrfCoordinatorMock),
+            abi.encodeWithSelector(VRFCoordinatorV2Mock.createSubscription.selector)
+        );
 
-        // Initialize the HelperConfig contract for Sepolia
-        helperConfig = new HelperConfig();
-        (
-            uint256 entranceFee,
-            uint256 interval,
-            address vrfCoordinator,
-            bytes32 gasLane,
-            uint64 subscriptionId,
-            uint32 callbackGasLimit,
-            address link,
-            uint256 deployerKey
-        ) = helperConfig.activeNetworkConfig();
+        // Call the createSubscription function and get the returned subId
+        uint64 returnedSubId = createSubscription.createSubscription(address(vrfCoordinatorMock), deployerKey);
 
-        // Deploy or get the necessary contracts
-        VRFCoordinatorV2Mock vrfCoordinatorMock = VRFCoordinatorV2Mock(vrfCoordinator);
-        LinkToken linkToken = LinkToken(link);
-        address raffle = address(this); // Simulating the raffle contract address
-        uint64 subId = subscriptionId;
+        // Assert that the returned subId matches the expected subId
+        assertEq(returnedSubId, expectedSubId, "Returned subId should match the expected subId");
 
-        // If subscriptionId is not set, create a new subscription
-        if (subId == 0) {
-            subId = vrfCoordinatorMock.createSubscription();
-        }
-
-        // Call the addConsumer function
-        addConsumer.addConsumer(raffle, address(vrfCoordinatorMock), subId, deployerKey);
-
-        // Verify that the consumer was added
-        address[] memory consumers = vrfCoordinatorMock.getConsumers(subId);
-        bool consumerAdded = false;
-        for (uint256 i = 0; i < consumers.length; i++) {
-            if (consumers[i] == raffle) {
-                consumerAdded = true;
-                break;
-            }
-        }
-
-        assertTrue(consumerAdded, "Consumer was not added to the subscription");
+        // Get the subscription details and check the owner
+        (,, address owner,) = vrfCoordinatorMock.getSubscription(expectedSubId);
+        address expectedOwner = vm.addr(deployerKey);
+        assertEq(owner, expectedOwner, "Subscription owner should be the address derived from deployerKey");
     }
 
-    function testAddConsumerForAnvil() public {
-        // Simulate Anvil chain ID
-        vm.chainId(31337);
+    // Test the logging of CreateSubscription
+    function testCreateSubscriptionLogging() public {
+        uint256 expectedChainId = block.chainid;
+        uint64 expectedSubId = 1;
 
-        // Initialize the HelperConfig contract for Anvil
-        helperConfig = new HelperConfig();
+        // Expect specific events to be emitted
+        vm.expectEmit(true, true, false, true);
+        emit SubscriptionCreated(expectedChainId, 0);
+        vm.expectEmit(true, true, false, true);
+        emit SubscriptionCreated(expectedChainId, expectedSubId);
+        vm.expectEmit(true, true, false, true);
+        emit UpdateHelperConfig();
 
-        // Get the active network config for Anvil
-        helperConfig = new HelperConfig();
-        (
-            uint256 entranceFee,
-            uint256 interval,
-            address vrfCoordinator,
-            bytes32 gasLane,
-            uint64 subscriptionId,
-            uint32 callbackGasLimit,
-            address link,
-            uint256 deployerKey
-        ) = helperConfig.activeNetworkConfig();
+        // Call createSubscription
+        uint64 returnedSubId = createSubscription.createSubscription(address(vrfCoordinatorMock), deployerKey);
 
-
-        // Deploy or get the necessary contracts
-        VRFCoordinatorV2Mock vrfCoordinatorMock = VRFCoordinatorV2Mock(vrfCoordinator);
-        LinkToken linkToken = LinkToken(link);
-        address raffle = address(this); // Simulating the raffle contract address
-
-        // If subscriptionId is not set, create a new subscription
-        if (subscriptionId == 0) {
-            subscriptionId = vrfCoordinatorMock.createSubscription(deployerKey);
-        }
-
-        // Call the addConsumer function
-        addConsumer.addConsumer(raffle, address(vrfCoordinatorMock), subscriptionId, deployerKey);
-
-        // Verify that the consumer was added
-        address[] memory consumers = vrfCoordinatorMock.getConsumers(uint64(subscriptionId));
-        bool consumerAdded = false;
-        for (uint256 i = 0; i < consumers.length; i++) {
-            if (consumers[i] == raffle) {
-                consumerAdded = true;
-                break;
-            }
-        }
-
-        assertTrue(consumerAdded, "Consumer was not added to the subscription");
+        // Assert that the returned subId matches the expected subId
+        assertEq(returnedSubId, expectedSubId, "Returned subId should match the expected subId");
     }   
+
+    // Test error handling in CreateSubscription
+   function testCreateSubscriptionErrorHandling() public {
+    // Test with invalid (zero) address
+    vm.expectRevert();
+    createSubscription.createSubscription(address(0), deployerKey);
+
+    // Test with a contract that always reverts
+    MockAlwaysRevert mockAlwaysRevert = new MockAlwaysRevert();
+    vm.expectRevert();
+    createSubscription.createSubscription(address(mockAlwaysRevert), deployerKey);
+}
+    // Test the FundSubscription function
+    function testFundSubscription() public {
+    // Ensure we're on a local chain
+    assertEq(block.chainid, 31337, "This test must be run on a local chain");
+
+    // Create a subscription and get its initial balance
+    subId = createSubscription.createSubscription(vrfCoordinator, deployerKey);
+    
+    // Get the initial balance
+    (uint96 initialBalance,,,) = vrfCoordinatorMock.getSubscription(subId);
+    
+    // Call fundSubscription
+    fundSubscription.fundSubscription(vrfCoordinator, subId, address(linkToken), deployerKey);
+
+    // Check the new balance
+    (uint96 finalBalance,,,) = vrfCoordinatorMock.getSubscription(subId);
+    
+    // Assert that the balance has increased by the expected amount (3 ether)
+    assertEq(finalBalance, initialBalance + 3 ether, "Subscription balance did not increase as expected");
+}
+
+    // Test FundSubscription with an invalid VRF coordinator
+    function testFundSubscriptionWithInvalidVrfCoordinator() public {
+        vm.expectRevert();
+        fundSubscription.fundSubscription(address(0), 1, address(linkToken), vm.envUint("PRIVATE_KEY"));
+    }
+
+    // Test FundSubscription with an invalid subscription ID
+    function testFundSubscriptionWithInvalidSubId() public {
+        (,, address validVrfCoordinator,,,,address validLink, uint256 validDeployerKey) = helperConfig.activeNetworkConfig();
+
+        vm.expectRevert(abi.encodeWithSignature("InvalidSubscription()"));
+        fundSubscription.fundSubscription(validVrfCoordinator, 999, validLink, validDeployerKey);
+    }
+
+    // Test FundSubscription with insufficient LINK balance
+    function testFundSubscriptionWithInsufficientLinkBalance() public {
+        (,, address validVrfCoordinator,, uint64 validSubId,, address validLink, uint256 validDeployerKey) = helperConfig.activeNetworkConfig();
+
+        // Set the LINK balance to 0
+        deal(validLink, address(this), 0);
+
+        vm.expectRevert();
+        fundSubscription.fundSubscription(validVrfCoordinator, validSubId, validLink, validDeployerKey);
+    }
+
+    function testFundAmountConstant() public {
+        // Verify FUND_AMOUNT is set correctly to 3 ether
+        assertEq(
+            fundSubscription.FUND_AMOUNT(), 
+            3 ether, 
+            "FUND_AMOUNT should be 3 ether"
+        );
+    }
 }

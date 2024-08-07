@@ -9,6 +9,9 @@ import {LinkToken} from "../test/mocks/LinkToken.sol";
 import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 
 contract CreateSubscription is Script {
+    event SubscriptionCreated(uint256 chainId, uint64 subId);
+    event UpdateHelperConfig();
+
     function createSubscriptionUsingConfig() public returns (uint64) {
         HelperConfig helperConfig = new HelperConfig();
         (
@@ -25,11 +28,15 @@ contract CreateSubscription is Script {
     }
 
     function createSubscription(address vrfCoordinator, uint256 deployerKey) public returns (uint64) {
+        emit SubscriptionCreated(block.chainid, 0);
         console.log("Creating subscription on ChainId: ", block.chainid);
         vm.startBroadcast(deployerKey);
         uint64 subId = VRFCoordinatorV2Mock(vrfCoordinator)
             .createSubscription();
         vm.stopBroadcast();
+
+        emit SubscriptionCreated(block.chainid, subId);
+        emit UpdateHelperConfig();
         console.log("Your sub Id is: ", subId);
         console.log("Please update subscriptionsId in HelperConfig.s.sol");
         return subId;

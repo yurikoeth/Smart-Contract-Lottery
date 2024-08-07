@@ -70,4 +70,9 @@ contract HelperConfig is Script {
                 deployerKey: DEFAULT_ANVIL_KEY
             });
         }
+
+        function updateSubscriptionId(uint64 newSubId) public {
+        NetworkConfig storage config = activeNetworkConfig;
+        config.subscriptionId = newSubId;
+    }
 }
